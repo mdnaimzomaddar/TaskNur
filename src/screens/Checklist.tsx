@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { View, Text, TextInput, Pressable, FlatList } from 'react-native';
+import { confirmAction } from '../lib/dialog';
 import { Ionicons } from '@expo/vector-icons';
-import { C, ui, localDate, useStored } from '../lib/shared';
+import { useApp, localDate, useStored } from '../lib/shared';
 
 type Item = { id: string; title: string };
 type DoneMap = Record<string, string[]>;
@@ -18,6 +19,7 @@ const LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const BAR_H = 44;
 
 export default function Checklist({ title, subtitle, storageKey, defaults, placeholder }: Props) {
+  const { C, ui } = useApp();
   const [items, setItems] = useStored<Item[]>(
     storageKey + '_items',
     defaults.map((t, i) => ({ id: 'd' + i, title: t }))
@@ -50,7 +52,8 @@ export default function Checklist({ title, subtitle, storageKey, defaults, place
     setItems([...items, { id: Date.now().toString(), title: t }]);
     setText('');
   };
-  const remove = (id: string) => setItems(items.filter((i) => i.id !== id));
+  const remove = (item: Item) =>
+    confirmAction('Delete item?', item.title, 'Delete', () => setItems((prev) => prev.filter((i) => i.id !== item.id)));
 
   return (
     <View style={{ flex: 1 }}>
@@ -65,19 +68,23 @@ export default function Checklist({ title, subtitle, storageKey, defaults, place
         <View style={ui.barBg}>
           <View style={[ui.barFill, { width: `${percent}%` }]} />
         </View>
-        <Text style={ui.sub}>{count} of {items.length} done</Text>
+        <Text style={ui.sub}>
+          {count} of {items.length} done
+        </Text>
       </View>
 
       <View style={[ui.card, { marginTop: 12, paddingVertical: 12 }]}>
         <View style={ui.rowBetween}>
           <Text style={ui.cardLabel}>Last 7 days</Text>
-          <Text style={ui.sub}>{weekDone} / {items.length * 7}</Text>
+          <Text style={ui.sub}>
+            {weekDone} / {items.length * 7}
+          </Text>
         </View>
         <View style={{ flexDirection: 'row', marginTop: 10 }}>
           {week.map((w) => (
             <View key={w.key} style={{ flex: 1, alignItems: 'center' }}>
               <View style={{ width: 18, height: BAR_H, backgroundColor: C.border, borderRadius: 6, justifyContent: 'flex-end', overflow: 'hidden' }}>
-                <View style={{ height: w.pct * BAR_H, backgroundColor: w.key === today ? C.accent : '#2A8F66', borderRadius: 6 }} />
+                <View style={{ height: w.pct * BAR_H, backgroundColor: w.key === today ? C.accent : C.accentDim, borderRadius: 6 }} />
               </View>
               <Text style={{ color: w.key === today ? C.accent : C.sub, fontSize: 11, marginTop: 4 }}>{w.letter}</Text>
             </View>
@@ -95,7 +102,7 @@ export default function Checklist({ title, subtitle, storageKey, defaults, place
           onSubmitEditing={add}
         />
         <Pressable style={ui.addBtn} onPress={add}>
-          <Ionicons name="add" size={26} color="#0F1115" />
+          <Ionicons name="add" size={26} color={C.onAccent} />
         </Pressable>
       </View>
 
@@ -106,18 +113,17 @@ export default function Checklist({ title, subtitle, storageKey, defaults, place
         ListEmptyComponent={<Text style={ui.empty}>Nothing here yet. Add your first item.</Text>}
         renderItem={({ item }) => {
           const isDone = doneToday.includes(item.id);
+          const color = isDone ? C.accent : C.danger;
           return (
-            <Pressable style={ui.task} onPress={() => toggle(item.id)}>
-              <Ionicons
-                name={isDone ? 'checkmark-circle' : 'ellipse-outline'}
-                size={26}
-                color={isDone ? C.accent : C.sub}
-              />
-              <Text style={[ui.taskText, isDone && ui.taskDone]}>{item.title}</Text>
-              <Pressable onPress={() => remove(item.id)} hitSlop={10}>
+            <View style={[ui.task, { borderLeftWidth: 4, borderLeftColor: color, paddingVertical: 4, paddingLeft: 14, paddingRight: 4 }]}>
+              <Pressable onPress={() => toggle(item.id)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 }}>
+                <Ionicons name={isDone ? 'checkmark-circle' : 'ellipse-outline'} size={26} color={color} />
+                <Text style={[ui.taskText, isDone && ui.taskDone]}>{item.title}</Text>
+              </Pressable>
+              <Pressable onPress={() => remove(item)} style={{ padding: 12 }}>
                 <Ionicons name="trash-outline" size={20} color={C.sub} />
               </Pressable>
-            </Pressable>
+            </View>
           );
         }}
       />
